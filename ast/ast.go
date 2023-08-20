@@ -146,3 +146,26 @@ func (es *ExpressionStatement) String() string {
 	}
 	return ""
 }
+
+// An expression with a prefix (!,-):
+// !x
+// -15
+type PrefixExpression struct {
+	Token    token.Token
+	Operator string
+	Right    Expression
+}
+
+func (pe *PrefixExpression) expressionNode() {}
+
+func (pe *PrefixExpression) TokenLiteral() string {
+	return pe.Token.Literal
+}
+
+func (es *PrefixExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("(")
+
+	return out.String()
+}
