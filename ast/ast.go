@@ -72,6 +72,21 @@ func (i *IntegerLiteral) String() string {
 	return i.Token.Literal
 }
 
+type BooleanLiteral struct {
+	Token token.Token
+	Value bool
+}
+
+func (b *BooleanLiteral) expressionNode() {}
+
+func (b *BooleanLiteral) TokenLiteral() string {
+	return b.Token.Literal
+}
+
+func (b *BooleanLiteral) String() string {
+	return b.Token.Literal
+}
+
 // A let statement is a statement that binds an expression to an identifier:
 // let x = 5;
 type LetStatement struct {
