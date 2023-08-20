@@ -166,6 +166,37 @@ func (es *PrefixExpression) String() string {
 	var out bytes.Buffer
 
 	out.WriteString("(")
+	out.WriteString(es.Operator)
+	out.WriteString(es.Right.String())
+	out.WriteString(")")
+
+	return out.String()
+}
+
+// An expression with an infix operator (+, -, *, /, ==, !=, <, >):
+// x + 5
+// 5 + 5
+type InfixExpression struct {
+	Token    token.Token
+	Left     Expression
+	Operator string
+	Right    Expression
+}
+
+func (ie *InfixExpression) expressionNode() {}
+
+func (ie *InfixExpression) TokenLiteral() string {
+	return ie.Token.Literal
+}
+
+func (es *InfixExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("(")
+	out.WriteString(es.Left.String())
+	out.WriteString(" " + es.Operator + " ")
+	out.WriteString(es.Right.String())
+	out.WriteString(")")
 
 	return out.String()
 }
