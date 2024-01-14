@@ -4,7 +4,7 @@ use crate::{lexer::Lexer, token::Token};
 
 const PROMPT: &str = ">> ";
 
-pub fn start_repl<R: BufRead, W: Write>(reader: &mut R, writer: &mut W) {
+pub fn start<R: BufRead, W: Write>(reader: &mut R, writer: &mut W) {
     loop {
         write!(writer, "{PROMPT}").unwrap();
         writer.flush().unwrap();
