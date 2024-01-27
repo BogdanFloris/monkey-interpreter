@@ -8,12 +8,14 @@ pub struct Parser {
     lexer: Lexer,
     cur_token: Option<Token>,
     peek_token: Option<Token>,
+    pub errors: Vec<String>,
 }
 
 impl Parser {
     pub fn new(lexer: Lexer) -> Self {
         let mut p = Self {
             lexer,
+            errors: Vec::new(),
             cur_token: None,
             peek_token: None,
         };
@@ -26,6 +28,14 @@ impl Parser {
     pub fn next_token(&mut self) {
         self.cur_token = self.peek_token.take();
         self.peek_token = Some(self.lexer.next_token());
+    }
+
+    pub fn peek_error(&mut self, token: &Token) {
+        let msg = format!(
+            "expected next token to be {:?}, got {:?} instead",
+            token, self.peek_token
+        );
+        self.errors.push(msg);
     }
 
     pub fn parse_program(&mut self) -> Program {
@@ -59,8 +69,10 @@ impl Parser {
                 let expr = self.parse_expression().unwrap();
                 return Some(Stmt::LetStmt(ident, expr));
             }
+            self.peek_error(&Token::Assign);
             return None;
         }
+        self.peek_error(&Token::Ident(String::new()));
         None
     }
 
@@ -78,6 +90,20 @@ impl Parser {
 mod tests {
     use crate::ast::{Expr, Literal, Stmt};
 
+    use super::Parser;
+
+    fn check_parser_errors(parser: &Parser) {
+        let errors = parser.errors.clone();
+        if errors.is_empty() {
+            return;
+        }
+        println!("parser has {} errors", errors.len());
+        for error in errors {
+            println!("parser error: {error}");
+        }
+        panic!("parser error");
+    }
+
     #[test]
     fn test_let_statement() {
         let input = "
@@ -88,6 +114,7 @@ mod tests {
         let lexer = crate::lexer::Lexer::new(input.to_string());
         let mut parser = crate::parser::Parser::new(lexer);
         let program = parser.parse_program();
+        check_parser_errors(&parser);
         assert_eq!(program.len(), 3);
 
         let tests = ["x", "y", "foobar"];
