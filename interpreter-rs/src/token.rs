@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum Token {
     // Special tokens
@@ -51,5 +53,11 @@ impl Token {
             "false" => Token::False,
             _ => Token::Ident(ident.to_string()),
         }
+    }
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{self:?}")
     }
 }
