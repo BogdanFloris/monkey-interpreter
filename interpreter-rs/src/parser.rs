@@ -56,6 +56,7 @@ impl Parser {
     fn parse_statement(&mut self) -> Option<Stmt> {
         match self.cur_token.clone() {
             Some(Token::Let) => self.parse_let_statement(),
+            Some(Token::Return) => Some(self.parse_return_statement()),
             _ => None,
         }
     }
@@ -76,6 +77,11 @@ impl Parser {
         None
     }
 
+    fn parse_return_statement(&mut self) -> Stmt {
+        let expr = self.parse_expression().unwrap();
+        Stmt::ReturnStmt(expr)
+    }
+
     fn parse_expression(&mut self) -> Option<Expr> {
         self.next_token();
         match self.cur_token.clone() {
@@ -88,7 +94,10 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
-    use crate::ast::{Expr, Literal, Stmt};
+    use crate::{
+        ast::{Expr, Literal, Stmt},
+        lexer::Lexer,
+    };
 
     use super::Parser;
 
@@ -111,8 +120,8 @@ mod tests {
         let y = 10;
         let foobar = 838383;
         ";
-        let lexer = crate::lexer::Lexer::new(input.to_string());
-        let mut parser = crate::parser::Parser::new(lexer);
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
         let program = parser.parse_program();
         check_parser_errors(&parser);
         assert_eq!(program.len(), 3);
@@ -133,6 +142,37 @@ mod tests {
                         Expr::IdentExpr(_) => panic!("expected literal expression"),
                     }
                 }
+                Stmt::ReturnStmt(_) => panic!("expected let statement"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_return_statement() {
+        let input = "
+        return 5;
+        return 10;
+        return 993322;
+        ";
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+        assert_eq!(program.len(), 3);
+
+        let tests = [5, 10, 993_322];
+        for (i, test) in tests.iter().enumerate() {
+            let stmt = &program[i];
+            match stmt {
+                Stmt::ReturnStmt(expr) => match expr {
+                    Expr::LiteralExpr(literal) => match literal {
+                        Literal::IntLiteral(int) => {
+                            assert_eq!(*int, *test);
+                        }
+                    },
+                    Expr::IdentExpr(_) => panic!("expected literal expression"),
+                },
+                Stmt::LetStmt(_, _) => panic!("expected return statement"),
             }
         }
     }

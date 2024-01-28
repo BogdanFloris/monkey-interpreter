@@ -2,6 +2,7 @@ pub type Program = Vec<Stmt>;
 
 pub enum Stmt {
     LetStmt(Ident, Expr),
+    ReturnStmt(Expr),
 }
 
 #[derive(PartialEq, Debug, Clone)]
