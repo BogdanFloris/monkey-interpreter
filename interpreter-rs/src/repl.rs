@@ -1,6 +1,6 @@
 use std::io::{BufRead, Write};
 
-use crate::{lexer::Lexer, token::Token};
+use crate::{lexer::Lexer, parser::Parser};
 
 const PROMPT: &str = ">> ";
 
@@ -13,13 +13,20 @@ pub fn start<R: BufRead, W: Write>(reader: &mut R, writer: &mut W) {
         if line.is_empty() {
             break;
         }
-        let mut lexer = Lexer::new(line);
-        loop {
-            let token = lexer.next_token();
-            if token == Token::Eof {
-                break;
+        let lexer = Lexer::new(line);
+        let mut parser = Parser::new(lexer);
+
+        let program = parser.parse_program();
+        if !parser.errors.is_empty() {
+            writeln!(writer, "Woops! We ran into some monkey business here!").unwrap();
+            writeln!(writer, " parser has {} errors", parser.errors.len()).unwrap();
+            for error in parser.errors {
+                writeln!(writer, "\t{error}").unwrap();
             }
-            writeln!(writer, "{token:?}").unwrap();
+            continue;
+        }
+        for stmt in program {
+            writeln!(writer, "{stmt}").unwrap();
         }
     }
 }
