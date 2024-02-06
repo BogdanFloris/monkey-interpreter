@@ -12,7 +12,7 @@ enum Precedence {
     Sum,         // +
     Product,     // *
     Prefix,      // -X or !X
-    Call,        // myFunction(X)
+                 // Call,        // myFunction(X)
 }
 
 pub struct Parser {
@@ -407,6 +407,52 @@ mod tests {
                     }
                     _ => panic!("expected infix expression"),
                 },
+                _ => panic!("expected expression statement"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_operator_precedence_parsing() {
+        let tests = [
+            "-a * b;",
+            "!-a;",
+            "a + b + c;",
+            "a + b - c;",
+            "a * b * c;",
+            "a * b / c;",
+            "a + b / c;",
+            "a + b * c + d / e - f;",
+            "5 > 4 == 3 < 4;",
+            "5 < 4 != 3 > 4;",
+            "3 + 4 * 5 == 3 * 1 + 4 * 5;",
+            "3 + 4 * 5 == 3 * 1 + 4 * 5;",
+        ];
+        let expected = [
+            "((-a) * b)",
+            "(!(-a))",
+            "((a + b) + c)",
+            "((a + b) - c)",
+            "((a * b) * c)",
+            "((a * b) / c)",
+            "(a + (b / c))",
+            "(((a + (b * c)) + (d / e)) - f)",
+            "((5 > 4) == (3 < 4))",
+            "((5 < 4) != (3 > 4))",
+            "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
+            "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
+        ];
+        for (i, test) in tests.iter().enumerate() {
+            let lexer = Lexer::new((*test).to_string());
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+            check_parser_errors(&parser);
+            assert_eq!(program.len(), 1);
+            let stmt = &program[0];
+            match stmt {
+                Stmt::Expr(expr) => {
+                    assert_eq!(format!("{expr}"), expected[i]);
+                }
                 _ => panic!("expected expression statement"),
             }
         }
