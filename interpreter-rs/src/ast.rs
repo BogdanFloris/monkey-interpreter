@@ -21,15 +21,17 @@ impl Display for Stmt {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Expr {
-    IdentExpr(Ident),
-    LiteralExpr(Literal),
+    Ident(Ident),
+    Literal(Literal),
+    Prefix(String, Box<Expr>),
 }
 
 impl Display for Expr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Expr::IdentExpr(ident) => write!(f, "{ident}"),
-            Expr::LiteralExpr(literal) => write!(f, "{literal}"),
+            Expr::Ident(ident) => write!(f, "{ident}"),
+            Expr::Literal(literal) => write!(f, "{literal}"),
+            Expr::Prefix(op, expr) => write!(f, "({op}{expr})"),
         }
     }
 }

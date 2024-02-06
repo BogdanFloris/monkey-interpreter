@@ -117,14 +117,14 @@ impl Parser {
 
     fn parse_identifier(&mut self) -> Option<Expr> {
         match self.cur_token.clone() {
-            Some(Token::Ident(ident)) => Some(Expr::IdentExpr(Ident(ident))),
+            Some(Token::Ident(ident)) => Some(Expr::Ident(Ident(ident))),
             _ => None,
         }
     }
 
     fn parse_integer_literal(&mut self) -> Option<Expr> {
         match self.cur_token.clone() {
-            Some(Token::Int(int)) => Some(Expr::LiteralExpr(Literal::IntLiteral(int))),
+            Some(Token::Int(int)) => Some(Expr::Literal(Literal::IntLiteral(int))),
             _ => None,
         }
     }
@@ -172,12 +172,12 @@ mod tests {
                 Stmt::Let(ident, expr) => {
                     assert_eq!(ident.0, *test);
                     match expr {
-                        Expr::LiteralExpr(literal) => match literal {
+                        Expr::Literal(literal) => match literal {
                             Literal::IntLiteral(int) => {
                                 assert_eq!(*int, literals[i]);
                             }
                         },
-                        Expr::IdentExpr(_) => panic!("expected literal expression"),
+                        _ => panic!("expected literal expression"),
                     }
                 }
                 _ => panic!("expected let statement"),
@@ -203,12 +203,12 @@ mod tests {
             let stmt = &program[i];
             match stmt {
                 Stmt::Return(expr) => match expr {
-                    Expr::LiteralExpr(literal) => match literal {
+                    Expr::Literal(literal) => match literal {
                         Literal::IntLiteral(int) => {
                             assert_eq!(*int, *test);
                         }
                     },
-                    Expr::IdentExpr(_) => panic!("expected literal expression"),
+                    _ => panic!("expected literal expression"),
                 },
                 _ => panic!("expected return statement"),
             }
@@ -227,10 +227,33 @@ mod tests {
         let stmt = &program[0];
         match stmt {
             Stmt::Expr(expr) => match expr {
-                Expr::IdentExpr(ident) => {
+                Expr::Ident(ident) => {
                     assert_eq!(ident.0, "foobar");
                 }
-                Expr::LiteralExpr(_) => panic!("expected identifier expression"),
+                _ => panic!("expected identifier expression"),
+            },
+            _ => panic!("expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn test_integer_literal_expression() {
+        let input = "5;";
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+        assert_eq!(program.len(), 1);
+
+        let stmt = &program[0];
+        match stmt {
+            Stmt::Expr(expr) => match expr {
+                Expr::Literal(literal) => match literal {
+                    Literal::IntLiteral(int) => {
+                        assert_eq!(*int, 5);
+                    }
+                },
+                _ => panic!("expected literal expression"),
             },
             _ => panic!("expected expression statement"),
         }
