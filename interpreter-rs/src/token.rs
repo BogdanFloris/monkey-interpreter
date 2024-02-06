@@ -19,7 +19,6 @@ pub enum Token {
     Asterisk,
     Eq,    // ==
     NotEq, // !=
-
     LessThan,
     GreaterThan,
 
@@ -58,6 +57,17 @@ impl Token {
 
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{self:?}")
+        match self {
+            Token::Bang => write!(f, "!"),
+            Token::Plus => write!(f, "+"),
+            Token::Minus => write!(f, "-"),
+            Token::Slash => write!(f, "/"),
+            Token::Asterisk => write!(f, "*"),
+            Token::Eq => write!(f, "=="),
+            Token::NotEq => write!(f, "!="),
+            Token::LessThan => write!(f, "<"),
+            Token::GreaterThan => write!(f, ">"),
+            _ => write!(f, "{self:?}"),
+        }
     }
 }

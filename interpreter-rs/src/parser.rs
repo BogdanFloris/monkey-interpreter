@@ -4,6 +4,7 @@ use crate::{
     token::Token,
 };
 
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
 enum Precedence {
     Lowest,
     Equals,      // ==
@@ -70,6 +71,26 @@ impl Parser {
         self.errors.push(msg);
     }
 
+    fn cur_precedence(&self) -> Precedence {
+        match self.cur_token.clone() {
+            Some(Token::Eq | Token::NotEq) => Precedence::Equals,
+            Some(Token::LessThan | Token::GreaterThan) => Precedence::LessGreater,
+            Some(Token::Plus | Token::Minus) => Precedence::Sum,
+            Some(Token::Slash | Token::Asterisk) => Precedence::Product,
+            _ => Precedence::Lowest,
+        }
+    }
+
+    fn peek_precedence(&self) -> Precedence {
+        match self.peek_token.clone() {
+            Some(Token::Eq | Token::NotEq) => Precedence::Equals,
+            Some(Token::LessThan | Token::GreaterThan) => Precedence::LessGreater,
+            Some(Token::Plus | Token::Minus) => Precedence::Sum,
+            Some(Token::Slash | Token::Asterisk) => Precedence::Product,
+            _ => Precedence::Lowest,
+        }
+    }
+
     fn parse_statement(&mut self) -> Option<Stmt> {
         match self.cur_token.clone() {
             Some(Token::Let) => self.parse_let_statement(),
@@ -107,10 +128,68 @@ impl Parser {
         expr.map(Stmt::Expr)
     }
 
-    fn parse_expression(&mut self, _precedence: &Precedence) -> Option<Expr> {
-        match self.cur_token.clone() {
+    fn parse_expression(&mut self, precedence: &Precedence) -> Option<Expr> {
+        let mut left_expr = match self.cur_token.clone() {
             Some(Token::Int(_)) => self.parse_integer_literal(),
             Some(Token::Ident(_)) => self.parse_identifier(),
+            Some(Token::Bang | Token::Minus) => self.parse_prefix_expression(),
+            _ => None,
+        };
+
+        while self.peek_token.clone().unwrap() != Token::SemiColon
+            && *precedence < self.peek_precedence()
+        {
+            self.next_token();
+            match self.cur_token.clone() {
+                Some(
+                    Token::Plus
+                    | Token::Minus
+                    | Token::Slash
+                    | Token::Asterisk
+                    | Token::LessThan
+                    | Token::GreaterThan
+                    | Token::Eq
+                    | Token::NotEq,
+                ) => {
+                    left_expr = self.parse_infix_expression(left_expr.unwrap());
+                }
+                _ => break,
+            }
+        }
+
+        left_expr
+    }
+
+    fn parse_prefix_expression(&mut self) -> Option<Expr> {
+        match self.cur_token.clone() {
+            Some(Token::Bang | Token::Minus) => {
+                let op = self.cur_token.clone().unwrap().to_string();
+                self.next_token();
+                let expr = self.parse_expression(&Precedence::Prefix).unwrap();
+                Some(Expr::Prefix(op, Box::new(expr)))
+            }
+            _ => None,
+        }
+    }
+
+    fn parse_infix_expression(&mut self, left: Expr) -> Option<Expr> {
+        match self.cur_token.clone() {
+            Some(
+                Token::Plus
+                | Token::Minus
+                | Token::Slash
+                | Token::Asterisk
+                | Token::LessThan
+                | Token::GreaterThan
+                | Token::Eq
+                | Token::NotEq,
+            ) => {
+                let op = self.cur_token.clone().unwrap().to_string();
+                let precedence = self.cur_precedence();
+                self.next_token();
+                let right = self.parse_expression(&precedence).unwrap();
+                Some(Expr::Infix(Box::new(left), op, Box::new(right)))
+            }
             _ => None,
         }
     }
@@ -256,6 +335,80 @@ mod tests {
                 _ => panic!("expected literal expression"),
             },
             _ => panic!("expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn test_prefix_expression() {
+        let input = "!5; -15;";
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+        assert_eq!(program.len(), 2);
+
+        let tests = [5, 15];
+        let operators = ["!", "-"];
+        for (i, test) in tests.iter().enumerate() {
+            let stmt = &program[i];
+            match stmt {
+                Stmt::Expr(expr) => match expr {
+                    Expr::Prefix(op, expr) => {
+                        assert_eq!(*op, operators[i]);
+                        match expr.as_ref() {
+                            Expr::Literal(literal) => match literal {
+                                Literal::IntLiteral(int) => {
+                                    assert_eq!(*int, *test);
+                                }
+                            },
+                            _ => panic!("expected literal expression"),
+                        }
+                    }
+                    _ => panic!("expected prefix expression"),
+                },
+                _ => panic!("expected expression statement"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_infix_expression() {
+        let input = "5 + 5; 5 - 5; 5 * 5; 5 / 5; 5 > 5; 5 < 5; 5 == 5; 5 != 5;";
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+        assert_eq!(program.len(), 8);
+
+        let tests = [5, 5, 5, 5, 5, 5, 5, 5];
+        let operators = ["+", "-", "*", "/", ">", "<", "==", "!="];
+        for (i, test) in tests.iter().enumerate() {
+            let stmt = &program[i];
+            match stmt {
+                Stmt::Expr(expr) => match expr {
+                    Expr::Infix(left, op, right) => {
+                        assert_eq!(*op, operators[i]);
+                        match left.as_ref() {
+                            Expr::Literal(literal) => match literal {
+                                Literal::IntLiteral(int) => {
+                                    assert_eq!(*int, *test);
+                                }
+                            },
+                            _ => panic!("expected literal expression"),
+                        }
+                        match right.as_ref() {
+                            Expr::Literal(literal) => match literal {
+                                Literal::IntLiteral(int) => {
+                                    assert_eq!(*int, *test);
+                                }
+                            },
+                            _ => panic!("expected literal expression"),
+                        }
+                    }
+                    _ => panic!("expected infix expression"),
+                },
+                _ => panic!("expected expression statement"),
+            }
         }
     }
 }

@@ -24,6 +24,7 @@ pub enum Expr {
     Ident(Ident),
     Literal(Literal),
     Prefix(String, Box<Expr>),
+    Infix(Box<Expr>, String, Box<Expr>),
 }
 
 impl Display for Expr {
@@ -32,6 +33,7 @@ impl Display for Expr {
             Expr::Ident(ident) => write!(f, "{ident}"),
             Expr::Literal(literal) => write!(f, "{literal}"),
             Expr::Prefix(op, expr) => write!(f, "({op}{expr})"),
+            Expr::Infix(left, op, right) => write!(f, "({left} {op} {right})"),
         }
     }
 }
