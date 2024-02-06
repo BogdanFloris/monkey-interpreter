@@ -4,6 +4,16 @@ use crate::{
     token::Token,
 };
 
+enum Precedence {
+    Lowest,
+    Equals,      // ==
+    LessGreater, // > or <
+    Sum,         // +
+    Product,     // *
+    Prefix,      // -X or !X
+    Call,        // myFunction(X)
+}
+
 pub struct Parser {
     lexer: Lexer,
     cur_token: Option<Token>,
@@ -19,23 +29,11 @@ impl Parser {
             cur_token: None,
             peek_token: None,
         };
+
         // Read two tokens, so cur_token and peek_token are both set
         p.next_token();
         p.next_token();
         p
-    }
-
-    pub fn next_token(&mut self) {
-        self.cur_token = self.peek_token.take();
-        self.peek_token = Some(self.lexer.next_token());
-    }
-
-    pub fn peek_error(&mut self, token: &Token) {
-        let msg = format!(
-            "expected next token to be {:?}, got {:?} instead",
-            token, self.peek_token
-        );
-        self.errors.push(msg);
     }
 
     pub fn parse_program(&mut self) -> Program {
@@ -46,18 +44,37 @@ impl Parser {
             }
             let stmt = self.parse_statement();
             if let Some(stmt) = stmt {
+                if !(self.peek_token.clone().unwrap() == Token::SemiColon) {
+                    self.errors
+                        .push(format!("expected semicolon after statement: {stmt}"));
+                }
                 program.push(stmt);
             }
             self.next_token();
+            self.next_token();
         }
         program
+    }
+
+    fn next_token(&mut self) {
+        self.cur_token = self.peek_token.take();
+        self.peek_token = Some(self.lexer.next_token());
+    }
+
+    fn peek_error(&mut self, token: &Token) {
+        let tok = self.peek_token.clone().unwrap();
+        let msg = format!(
+            "expected next token to be {:?}, got {:?} instead",
+            *token, tok
+        );
+        self.errors.push(msg);
     }
 
     fn parse_statement(&mut self) -> Option<Stmt> {
         match self.cur_token.clone() {
             Some(Token::Let) => self.parse_let_statement(),
             Some(Token::Return) => Some(self.parse_return_statement()),
-            _ => None,
+            _ => self.parse_expression_statement(),
         }
     }
 
@@ -66,9 +83,11 @@ impl Parser {
             self.next_token();
             let ident = Ident(ident);
             if let Some(Token::Assign) = self.peek_token.clone() {
+                // skip = token
                 self.next_token();
-                let expr = self.parse_expression().unwrap();
-                return Some(Stmt::LetStmt(ident, expr));
+                self.next_token();
+                let expr = self.parse_expression(&Precedence::Lowest).unwrap();
+                return Some(Stmt::Let(ident, expr));
             }
             self.peek_error(&Token::Assign);
             return None;
@@ -78,15 +97,34 @@ impl Parser {
     }
 
     fn parse_return_statement(&mut self) -> Stmt {
-        let expr = self.parse_expression().unwrap();
-        Stmt::ReturnStmt(expr)
+        self.next_token();
+        let expr = self.parse_expression(&Precedence::Lowest).unwrap();
+        Stmt::Return(expr)
     }
 
-    fn parse_expression(&mut self) -> Option<Expr> {
-        self.next_token();
+    fn parse_expression_statement(&mut self) -> Option<Stmt> {
+        let expr = self.parse_expression(&Precedence::Lowest);
+        expr.map(Stmt::Expr)
+    }
+
+    fn parse_expression(&mut self, _precedence: &Precedence) -> Option<Expr> {
+        match self.cur_token.clone() {
+            Some(Token::Int(_)) => self.parse_integer_literal(),
+            Some(Token::Ident(_)) => self.parse_identifier(),
+            _ => None,
+        }
+    }
+
+    fn parse_identifier(&mut self) -> Option<Expr> {
+        match self.cur_token.clone() {
+            Some(Token::Ident(ident)) => Some(Expr::IdentExpr(Ident(ident))),
+            _ => None,
+        }
+    }
+
+    fn parse_integer_literal(&mut self) -> Option<Expr> {
         match self.cur_token.clone() {
             Some(Token::Int(int)) => Some(Expr::LiteralExpr(Literal::IntLiteral(int))),
-            Some(Token::Ident(ident)) => Some(Expr::IdentExpr(Ident(ident))),
             _ => None,
         }
     }
@@ -131,7 +169,7 @@ mod tests {
         for (i, test) in tests.iter().enumerate() {
             let stmt = &program[i];
             match stmt {
-                Stmt::LetStmt(ident, expr) => {
+                Stmt::Let(ident, expr) => {
                     assert_eq!(ident.0, *test);
                     match expr {
                         Expr::LiteralExpr(literal) => match literal {
@@ -142,7 +180,7 @@ mod tests {
                         Expr::IdentExpr(_) => panic!("expected literal expression"),
                     }
                 }
-                Stmt::ReturnStmt(_) => panic!("expected let statement"),
+                _ => panic!("expected let statement"),
             }
         }
     }
@@ -164,7 +202,7 @@ mod tests {
         for (i, test) in tests.iter().enumerate() {
             let stmt = &program[i];
             match stmt {
-                Stmt::ReturnStmt(expr) => match expr {
+                Stmt::Return(expr) => match expr {
                     Expr::LiteralExpr(literal) => match literal {
                         Literal::IntLiteral(int) => {
                             assert_eq!(*int, *test);
@@ -172,8 +210,29 @@ mod tests {
                     },
                     Expr::IdentExpr(_) => panic!("expected literal expression"),
                 },
-                Stmt::LetStmt(_, _) => panic!("expected return statement"),
+                _ => panic!("expected return statement"),
             }
+        }
+    }
+
+    #[test]
+    fn test_identifier_expression() {
+        let input = "foobar;";
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+        assert_eq!(program.len(), 1);
+
+        let stmt = &program[0];
+        match stmt {
+            Stmt::Expr(expr) => match expr {
+                Expr::IdentExpr(ident) => {
+                    assert_eq!(ident.0, "foobar");
+                }
+                Expr::LiteralExpr(_) => panic!("expected identifier expression"),
+            },
+            _ => panic!("expected expression statement"),
         }
     }
 }

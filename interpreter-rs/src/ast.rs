@@ -2,16 +2,19 @@ use std::fmt::Display;
 
 pub type Program = Vec<Stmt>;
 
+#[derive(Debug, PartialEq, Clone)]
 pub enum Stmt {
-    LetStmt(Ident, Expr),
-    ReturnStmt(Expr),
+    Let(Ident, Expr),
+    Return(Expr),
+    Expr(Expr),
 }
 
 impl Display for Stmt {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Stmt::LetStmt(ident, expr) => write!(f, "let {ident} = {expr};"),
-            Stmt::ReturnStmt(expr) => write!(f, "return {expr};"),
+            Stmt::Let(ident, expr) => write!(f, "let {ident} = {expr};"),
+            Stmt::Return(expr) => write!(f, "return {expr};"),
+            Stmt::Expr(expr) => write!(f, "{expr};"),
         }
     }
 }

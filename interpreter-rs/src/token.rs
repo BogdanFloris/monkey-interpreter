@@ -1,6 +1,6 @@
 use std::fmt::Display;
 
-#[derive(Debug, Clone, Eq, PartialEq)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum Token {
     // Special tokens
     Illegal,

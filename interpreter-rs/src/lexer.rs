@@ -59,7 +59,6 @@ impl Lexer {
                 if self.ch.is_ascii_alphabetic() {
                     return Token::lookup_ident(&self.read_ident());
                 } else if self.ch.is_ascii_digit() {
-                    // TODO: handle error
                     let num = self.read_number().unwrap();
                     return Token::Int(num);
                 }
