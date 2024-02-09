@@ -7,6 +7,7 @@ pub enum Stmt {
     Let(Ident, Expr),
     Return(Expr),
     Expr(Expr),
+    Block(Vec<Stmt>),
 }
 
 impl Display for Stmt {
@@ -15,6 +16,13 @@ impl Display for Stmt {
             Stmt::Let(ident, expr) => write!(f, "let {ident} = {expr};"),
             Stmt::Return(expr) => write!(f, "return {expr};"),
             Stmt::Expr(expr) => write!(f, "{expr};"),
+            Stmt::Block(stmts) => {
+                write!(f, "{{")?;
+                for stmt in stmts {
+                    writeln!(f, "{stmt}")?;
+                }
+                write!(f, "}}")
+            }
         }
     }
 }
@@ -25,6 +33,7 @@ pub enum Expr {
     Literal(Literal),
     Prefix(String, Box<Expr>),
     Infix(Box<Expr>, String, Box<Expr>),
+    If(Box<Expr>, Box<Stmt>, Option<Box<Stmt>>),
 }
 
 impl Display for Expr {
@@ -34,6 +43,13 @@ impl Display for Expr {
             Expr::Literal(literal) => write!(f, "{literal}"),
             Expr::Prefix(op, expr) => write!(f, "({op}{expr})"),
             Expr::Infix(left, op, right) => write!(f, "({left} {op} {right})"),
+            Expr::If(cond, consequence, alternative) => {
+                write!(f, "if {cond} {consequence}")?;
+                if let Some(alt) = alternative {
+                    write!(f, " else {alt}")?;
+                }
+                Ok(())
+            }
         }
     }
 }

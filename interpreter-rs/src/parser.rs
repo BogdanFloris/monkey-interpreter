@@ -128,6 +128,19 @@ impl Parser {
         expr.map(Stmt::Expr)
     }
 
+    fn parse_block_statement(&mut self) -> Stmt {
+        self.next_token();
+        let mut stmts = Vec::new();
+        while self.cur_token.clone().unwrap() != Token::RBrace {
+            let stmt = self.parse_statement();
+            if let Some(stmt) = stmt {
+                stmts.push(stmt);
+            }
+            self.next_token();
+        }
+        Stmt::Block(stmts)
+    }
+
     fn parse_expression(&mut self, precedence: &Precedence) -> Option<Expr> {
         let mut left_expr = match self.cur_token.clone() {
             Some(Token::Int(_)) => self.parse_integer_literal(),
@@ -135,6 +148,7 @@ impl Parser {
             Some(Token::Ident(_)) => self.parse_identifier(),
             Some(Token::Bang | Token::Minus) => self.parse_prefix_expression(),
             Some(Token::LParen) => self.parse_grouped_expression(),
+            Some(Token::If) => self.parse_if_expression(),
             _ => None,
         };
 
@@ -203,6 +217,46 @@ impl Parser {
             self.next_token();
             return expr;
         }
+        None
+    }
+
+    fn parse_if_expression(&mut self) -> Option<Expr> {
+        if let Some(Token::LParen) = self.peek_token.clone() {
+            self.next_token();
+            self.next_token();
+            let cond = self.parse_expression(&Precedence::Lowest).unwrap();
+            if let Some(Token::RParen) = self.peek_token.clone() {
+                self.next_token();
+                if let Some(Token::LBrace) = self.peek_token.clone() {
+                    self.next_token();
+                    let consequence = self.parse_block_statement();
+                    let alternative = if let Some(Token::Else) = self.peek_token.clone() {
+                        self.next_token();
+                        if let Some(Token::LBrace) = self.peek_token.clone() {
+                            self.next_token();
+                            Some(self.parse_block_statement())
+                        } else {
+                            self.errors.push("expected { after else".to_string());
+                            return None;
+                        }
+                    } else {
+                        None
+                    };
+                    return Some(Expr::If(
+                        Box::new(cond),
+                        Box::new(consequence),
+                        alternative.map(Box::new),
+                    ));
+                }
+                self.errors
+                    .push("expected { after if condition".to_string());
+                return None;
+            }
+            self.errors
+                .push("expected ) after if condition".to_string());
+            return None;
+        }
+        self.errors.push("expected ( after if".to_string());
         None
     }
 
@@ -518,6 +572,55 @@ mod tests {
                 }
                 _ => panic!("expected expression statement"),
             }
+        }
+    }
+
+    #[test]
+    fn test_if_expression() {
+        let input = "if (x < y) { x };";
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+        assert_eq!(program.len(), 1);
+        let stmt = &program[0];
+        match stmt {
+            Stmt::Expr(expr) => match expr {
+                Expr::If(cond, consequence, alternative) => {
+                    assert_eq!(format!("{cond}"), "(x < y)");
+                    assert_eq!(format!("{consequence}"), "{x;\n}");
+                    assert_eq!(*alternative, None);
+                }
+                _ => panic!("expected if expression"),
+            },
+            _ => panic!("expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        let input = "if (x < y) { x } else { y };";
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+        assert_eq!(program.len(), 1);
+        let stmt = &program[0];
+        match stmt {
+            Stmt::Expr(expr) => match expr {
+                Expr::If(cond, consequence, alternative) => {
+                    assert_eq!(format!("{cond}"), "(x < y)");
+                    assert_eq!(format!("{consequence}"), "{x;\n}");
+                    match alternative {
+                        Some(alt) => {
+                            assert_eq!(format!("{alt}"), "{y;\n}");
+                        }
+                        None => panic!("expected alternative"),
+                    }
+                }
+                _ => panic!("expected if expression"),
+            },
+            _ => panic!("expected expression statement"),
         }
     }
 }
