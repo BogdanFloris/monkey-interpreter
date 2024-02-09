@@ -134,6 +134,7 @@ impl Parser {
             Some(Token::True | Token::False) => self.parse_boolean_literal(),
             Some(Token::Ident(_)) => self.parse_identifier(),
             Some(Token::Bang | Token::Minus) => self.parse_prefix_expression(),
+            Some(Token::LParen) => self.parse_grouped_expression(),
             _ => None,
         };
 
@@ -193,6 +194,16 @@ impl Parser {
             }
             _ => None,
         }
+    }
+
+    fn parse_grouped_expression(&mut self) -> Option<Expr> {
+        self.next_token();
+        let expr = self.parse_expression(&Precedence::Lowest);
+        if self.peek_token.clone().unwrap() == Token::RParen {
+            self.next_token();
+            return expr;
+        }
+        None
     }
 
     fn parse_identifier(&mut self) -> Option<Expr> {
@@ -469,6 +480,11 @@ mod tests {
             "5 < 4 != 3 > 4;",
             "3 + 4 * 5 == 3 * 1 + 4 * 5;",
             "3 + 4 * 5 == 3 * 1 + 4 * 5;",
+            "1 + (2 + 3) + 4;",
+            "(5 + 5) * 2;",
+            "2 / (5 + 5);",
+            "-(5 + 5);",
+            "!(true == true);",
         ];
         let expected = [
             "((-a) * b)",
@@ -483,6 +499,11 @@ mod tests {
             "((5 < 4) != (3 > 4))",
             "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
             "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)))",
+            "((1 + (2 + 3)) + 4)",
+            "((5 + 5) * 2)",
+            "(2 / (5 + 5))",
+            "(-(5 + 5))",
+            "(!(true == true))",
         ];
         for (i, test) in tests.iter().enumerate() {
             let lexer = Lexer::new((*test).to_string());
