@@ -12,7 +12,7 @@ enum Precedence {
     Sum,         // +
     Product,     // *
     Prefix,      // -X or !X
-                 // Call,        // myFunction(X)
+    Call,        // myFunction(X)
 }
 
 pub struct Parser {
@@ -77,6 +77,7 @@ impl Parser {
             Some(Token::LessThan | Token::GreaterThan) => Precedence::LessGreater,
             Some(Token::Plus | Token::Minus) => Precedence::Sum,
             Some(Token::Slash | Token::Asterisk) => Precedence::Product,
+            Some(Token::LParen) => Precedence::Call,
             _ => Precedence::Lowest,
         }
     }
@@ -87,6 +88,7 @@ impl Parser {
             Some(Token::LessThan | Token::GreaterThan) => Precedence::LessGreater,
             Some(Token::Plus | Token::Minus) => Precedence::Sum,
             Some(Token::Slash | Token::Asterisk) => Precedence::Product,
+            Some(Token::LParen) => Precedence::Call,
             _ => Precedence::Lowest,
         }
     }
@@ -169,6 +171,9 @@ impl Parser {
                     | Token::NotEq,
                 ) => {
                     left_expr = self.parse_infix_expression(left_expr.unwrap());
+                }
+                Some(Token::LParen) => {
+                    left_expr = self.parse_call_expression(left_expr.unwrap());
                 }
                 _ => break,
             }
@@ -259,6 +264,36 @@ impl Parser {
         }
         self.errors.push("expected ( after if".to_string());
         None
+    }
+
+    fn parse_call_expression(&mut self, function: Expr) -> Option<Expr> {
+        if let Some(Token::LParen) = self.cur_token.clone() {
+            let args = self.parse_call_arguments();
+            Some(Expr::Call(Box::new(function), args))
+        } else {
+            None
+        }
+    }
+
+    fn parse_call_arguments(&mut self) -> Vec<Expr> {
+        let mut args = Vec::new();
+        if self.peek_token.clone().unwrap() == Token::RParen {
+            self.next_token();
+            return args;
+        }
+        self.next_token();
+        args.push(self.parse_expression(&Precedence::Lowest).unwrap());
+        while self.peek_token.clone().unwrap() == Token::Comma {
+            self.next_token();
+            self.next_token();
+            args.push(self.parse_expression(&Precedence::Lowest).unwrap());
+        }
+        if self.peek_token.clone().unwrap() != Token::RParen {
+            self.errors
+                .push("expected , or ) after call arguments".to_string());
+        }
+        self.next_token();
+        args
     }
 
     fn parse_identifier(&mut self) -> Option<Expr> {
@@ -685,6 +720,30 @@ mod tests {
                     assert_eq!(format!("{body}"), "{\n  (x + y);\n}");
                 }
                 _ => panic!("expected function expression"),
+            },
+            _ => panic!("expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn test_call_expression() {
+        let input = "add(1, 2 * 3, 4 + 5);";
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+        assert_eq!(program.len(), 1);
+        let stmt = &program[0];
+        match stmt {
+            Stmt::Expr(expr) => match expr {
+                Expr::Call(func, args) => {
+                    assert_eq!(format!("{func}"), "add");
+                    assert_eq!(args.len(), 3);
+                    assert_eq!(format!("{}", args[0]), "1");
+                    assert_eq!(format!("{}", args[1]), "(2 * 3)");
+                    assert_eq!(format!("{}", args[2]), "(4 + 5)");
+                }
+                _ => panic!("expected call expression"),
             },
             _ => panic!("expected expression statement"),
         }

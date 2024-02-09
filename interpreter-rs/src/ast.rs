@@ -35,6 +35,7 @@ pub enum Expr {
     Infix(Box<Expr>, String, Box<Expr>),
     If(Box<Expr>, Box<Stmt>, Option<Box<Stmt>>),
     Function(Vec<Ident>, Box<Stmt>),
+    Call(Box<Expr>, Vec<Expr>),
 }
 
 impl Display for Expr {
@@ -60,6 +61,16 @@ impl Display for Expr {
                     }
                 }
                 write!(f, ") {body}")
+            }
+            Expr::Call(function, args) => {
+                write!(f, "{function}(")?;
+                for arg in args {
+                    write!(f, "{arg}")?;
+                    if arg != args.last().unwrap() {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, ")")
             }
         }
     }
