@@ -34,6 +34,7 @@ pub enum Expr {
     Prefix(String, Box<Expr>),
     Infix(Box<Expr>, String, Box<Expr>),
     If(Box<Expr>, Box<Stmt>, Option<Box<Stmt>>),
+    Function(Vec<Ident>, Box<Stmt>),
 }
 
 impl Display for Expr {
@@ -49,6 +50,16 @@ impl Display for Expr {
                     write!(f, " else {alt}")?;
                 }
                 Ok(())
+            }
+            Expr::Function(params, body) => {
+                write!(f, "fn(")?;
+                for (i, param) in params.iter().enumerate() {
+                    write!(f, "{param}")?;
+                    if i < params.len() - 1 {
+                        write!(f, ", ")?;
+                    }
+                }
+                write!(f, ") {body}")
             }
         }
     }

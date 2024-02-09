@@ -149,6 +149,7 @@ impl Parser {
             Some(Token::Bang | Token::Minus) => self.parse_prefix_expression(),
             Some(Token::LParen) => self.parse_grouped_expression(),
             Some(Token::If) => self.parse_if_expression(),
+            Some(Token::Function) => self.parse_function_literal(),
             _ => None,
         };
 
@@ -280,6 +281,48 @@ impl Parser {
             Some(Token::False) => Some(Expr::Literal(Literal::Bool(false))),
             _ => None,
         }
+    }
+
+    fn parse_function_literal(&mut self) -> Option<Expr> {
+        if let Some(Token::LParen) = self.peek_token.clone() {
+            self.next_token();
+            let params = self.parse_function_parameters();
+            self.next_token();
+            if let Some(Token::LBrace) = self.peek_token.clone() {
+                self.next_token();
+                let body = self.parse_block_statement();
+                return Some(Expr::Function(params, Box::new(body)));
+            }
+            self.errors
+                .push("expected { after function parameters".to_string());
+            return None;
+        }
+        self.errors.push("expected ( after function".to_string());
+        None
+    }
+
+    fn parse_function_parameters(&mut self) -> Vec<Ident> {
+        let mut params = Vec::new();
+        if self.peek_token.clone().unwrap() == Token::RParen {
+            self.next_token();
+            return params;
+        }
+        self.next_token();
+        if let Some(Token::Ident(ident)) = self.cur_token.clone() {
+            params.push(Ident(ident));
+        }
+        while self.peek_token.clone().unwrap() == Token::Comma {
+            self.next_token();
+            self.next_token();
+            if let Some(Token::Ident(ident)) = self.cur_token.clone() {
+                params.push(Ident(ident));
+            }
+        }
+        if self.peek_token.clone().unwrap() != Token::RParen {
+            self.errors
+                .push("expected , or ) after function parameters".to_string());
+        }
+        params
     }
 }
 
@@ -619,6 +662,29 @@ mod tests {
                     }
                 }
                 _ => panic!("expected if expression"),
+            },
+            _ => panic!("expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn test_function_expression() {
+        let input = "fn(x, y) { x + y; };";
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+        assert_eq!(program.len(), 1);
+        let stmt = &program[0];
+        match stmt {
+            Stmt::Expr(expr) => match expr {
+                Expr::Function(params, body) => {
+                    assert_eq!(params.len(), 2);
+                    assert_eq!(params[0].0, "x");
+                    assert_eq!(params[1].0, "y");
+                    assert_eq!(format!("{body}"), "{\n  (x + y);\n}");
+                }
+                _ => panic!("expected function expression"),
             },
             _ => panic!("expected expression statement"),
         }
