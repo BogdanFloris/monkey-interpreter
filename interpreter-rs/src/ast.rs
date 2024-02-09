@@ -40,15 +40,16 @@ impl Display for Expr {
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Literal {
-    IntLiteral(i64),
-    // BoolLiteral(bool),
+    Int(i64),
+    Bool(bool),
     // StringLiteral(String),
 }
 
 impl Display for Literal {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Literal::IntLiteral(int) => write!(f, "{int}"),
+            Literal::Int(int) => write!(f, "{int}"),
+            Literal::Bool(bool) => write!(f, "{bool}"),
         }
     }
 }

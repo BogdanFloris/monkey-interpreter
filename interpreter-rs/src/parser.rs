@@ -131,6 +131,7 @@ impl Parser {
     fn parse_expression(&mut self, precedence: &Precedence) -> Option<Expr> {
         let mut left_expr = match self.cur_token.clone() {
             Some(Token::Int(_)) => self.parse_integer_literal(),
+            Some(Token::True | Token::False) => self.parse_boolean_literal(),
             Some(Token::Ident(_)) => self.parse_identifier(),
             Some(Token::Bang | Token::Minus) => self.parse_prefix_expression(),
             _ => None,
@@ -203,7 +204,15 @@ impl Parser {
 
     fn parse_integer_literal(&mut self) -> Option<Expr> {
         match self.cur_token.clone() {
-            Some(Token::Int(int)) => Some(Expr::Literal(Literal::IntLiteral(int))),
+            Some(Token::Int(int)) => Some(Expr::Literal(Literal::Int(int))),
+            _ => None,
+        }
+    }
+
+    fn parse_boolean_literal(&mut self) -> Option<Expr> {
+        match self.cur_token.clone() {
+            Some(Token::True) => Some(Expr::Literal(Literal::Bool(true))),
+            Some(Token::False) => Some(Expr::Literal(Literal::Bool(false))),
             _ => None,
         }
     }
@@ -252,9 +261,10 @@ mod tests {
                     assert_eq!(ident.0, *test);
                     match expr {
                         Expr::Literal(literal) => match literal {
-                            Literal::IntLiteral(int) => {
+                            Literal::Int(int) => {
                                 assert_eq!(*int, literals[i]);
                             }
+                            Literal::Bool(_) => panic!("expected integer literal"),
                         },
                         _ => panic!("expected literal expression"),
                     }
@@ -283,9 +293,10 @@ mod tests {
             match stmt {
                 Stmt::Return(expr) => match expr {
                     Expr::Literal(literal) => match literal {
-                        Literal::IntLiteral(int) => {
+                        Literal::Int(int) => {
                             assert_eq!(*int, *test);
                         }
+                        Literal::Bool(_) => panic!("expected integer literal"),
                     },
                     _ => panic!("expected literal expression"),
                 },
@@ -328,13 +339,41 @@ mod tests {
         match stmt {
             Stmt::Expr(expr) => match expr {
                 Expr::Literal(literal) => match literal {
-                    Literal::IntLiteral(int) => {
+                    Literal::Int(int) => {
                         assert_eq!(*int, 5);
                     }
+                    Literal::Bool(_) => panic!("expected integer literal"),
                 },
                 _ => panic!("expected literal expression"),
             },
             _ => panic!("expected expression statement"),
+        }
+    }
+
+    #[test]
+    fn test_boolean_literal_expression() {
+        let input = "true; false;";
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        check_parser_errors(&parser);
+        assert_eq!(program.len(), 2);
+
+        let tests = [true, false];
+        for (i, test) in tests.iter().enumerate() {
+            let stmt = &program[i];
+            match stmt {
+                Stmt::Expr(expr) => match expr {
+                    Expr::Literal(literal) => match literal {
+                        Literal::Bool(bool) => {
+                            assert_eq!(*bool, *test);
+                        }
+                        Literal::Int(_) => panic!("expected boolean literal"),
+                    },
+                    _ => panic!("expected literal expression"),
+                },
+                _ => panic!("expected expression statement"),
+            }
         }
     }
 
@@ -357,9 +396,10 @@ mod tests {
                         assert_eq!(*op, operators[i]);
                         match expr.as_ref() {
                             Expr::Literal(literal) => match literal {
-                                Literal::IntLiteral(int) => {
+                                Literal::Int(int) => {
                                     assert_eq!(*int, *test);
                                 }
+                                Literal::Bool(_) => panic!("expected integer literal"),
                             },
                             _ => panic!("expected literal expression"),
                         }
@@ -390,17 +430,19 @@ mod tests {
                         assert_eq!(*op, operators[i]);
                         match left.as_ref() {
                             Expr::Literal(literal) => match literal {
-                                Literal::IntLiteral(int) => {
+                                Literal::Int(int) => {
                                     assert_eq!(*int, *test);
                                 }
+                                Literal::Bool(_) => panic!("expected integer literal"),
                             },
                             _ => panic!("expected literal expression"),
                         }
                         match right.as_ref() {
                             Expr::Literal(literal) => match literal {
-                                Literal::IntLiteral(int) => {
+                                Literal::Int(int) => {
                                     assert_eq!(*int, *test);
                                 }
+                                Literal::Bool(_) => panic!("expected integer literal"),
                             },
                             _ => panic!("expected literal expression"),
                         }
