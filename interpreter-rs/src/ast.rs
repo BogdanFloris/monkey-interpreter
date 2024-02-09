@@ -17,9 +17,9 @@ impl Display for Stmt {
             Stmt::Return(expr) => write!(f, "return {expr};"),
             Stmt::Expr(expr) => write!(f, "{expr};"),
             Stmt::Block(stmts) => {
-                write!(f, "{{")?;
+                writeln!(f, "{{")?;
                 for stmt in stmts {
-                    writeln!(f, "{stmt}")?;
+                    writeln!(f, "  {stmt}")?;
                 }
                 write!(f, "}}")
             }

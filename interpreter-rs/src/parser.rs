@@ -588,7 +588,7 @@ mod tests {
             Stmt::Expr(expr) => match expr {
                 Expr::If(cond, consequence, alternative) => {
                     assert_eq!(format!("{cond}"), "(x < y)");
-                    assert_eq!(format!("{consequence}"), "{x;\n}");
+                    assert_eq!(format!("{consequence}"), "{\n  x;\n}");
                     assert_eq!(*alternative, None);
                 }
                 _ => panic!("expected if expression"),
@@ -610,10 +610,10 @@ mod tests {
             Stmt::Expr(expr) => match expr {
                 Expr::If(cond, consequence, alternative) => {
                     assert_eq!(format!("{cond}"), "(x < y)");
-                    assert_eq!(format!("{consequence}"), "{x;\n}");
+                    assert_eq!(format!("{consequence}"), "{\n  x;\n}");
                     match alternative {
                         Some(alt) => {
-                            assert_eq!(format!("{alt}"), "{y;\n}");
+                            assert_eq!(format!("{alt}"), "{\n  y;\n}");
                         }
                         None => panic!("expected alternative"),
                     }
