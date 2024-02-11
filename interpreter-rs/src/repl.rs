@@ -1,3 +1,4 @@
+use crate::evaluator::Evaluator;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use std::io::{BufRead, Write};
@@ -10,6 +11,7 @@ const PROMPT: &str = ">> ";
 ///
 /// Panics if the writer is unable to write to the output
 pub fn start<R: BufRead, W: Write>(reader: &mut R, writer: &mut W) {
+    let mut evaluator = Evaluator::new();
     loop {
         write!(writer, "{PROMPT}").unwrap();
         writer.flush().unwrap();
@@ -30,8 +32,7 @@ pub fn start<R: BufRead, W: Write>(reader: &mut R, writer: &mut W) {
             }
             continue;
         }
-        for stmt in program {
-            writeln!(writer, "{stmt}").unwrap();
-        }
+        let evaluated = evaluator.eval_program(program);
+        writeln!(writer, "{evaluated}").unwrap();
     }
 }
