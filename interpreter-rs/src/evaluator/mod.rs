@@ -34,8 +34,9 @@ impl Evaluator {
         let mut result = Object::Null;
         for statement in program {
             result = self.eval_statement(statement);
-            if let Object::ReturnValue(_) = result {
-                return result;
+            match result {
+                Object::ReturnValue(_) | Object::Error(_) => return result,
+                _ => {}
             }
         }
         result
@@ -45,7 +46,13 @@ impl Evaluator {
         match stmt {
             Stmt::Expr(expr) => self.eval_expression(expr),
             Stmt::Block(stmts) => self.eval_block_statement(stmts),
-            Stmt::Return(expr) => Object::ReturnValue(Box::new(self.eval_expression(expr))),
+            Stmt::Return(expr) => {
+                let value = self.eval_expression(expr);
+                if let Object::Error(_) = value {
+                    return value;
+                }
+                Object::ReturnValue(Box::new(value))
+            }
             Stmt::Let(_, _) => Object::Null,
         }
     }
@@ -71,23 +78,32 @@ impl Evaluator {
 
     pub fn eval_prefix_expression(&mut self, operator: &Prefix, right: &Expr) -> Object {
         let right = self.eval_expression(right.clone());
+        if let Object::Error(_) = right {
+            return right;
+        }
         match operator {
             Prefix::Not => match right {
                 Object::Boolean(value) => Object::Boolean(!value),
                 Object::Integer(int) => Object::Boolean(int == 0),
-                _ => Object::Null,
+                _ => Object::Error(format!("unknown operator: !{right:?}").to_string()),
             },
             Prefix::Minus => match right {
                 Object::Integer(value) => Object::Integer(-value),
-                _ => Object::Null,
+                _ => Object::Error(format!("unknown operator: -{right:?}").to_string()),
             },
         }
     }
 
     pub fn eval_infix_expression(&mut self, left: Expr, operator: &Infix, right: Expr) -> Object {
         let left = self.eval_expression(left);
+        if let Object::Error(_) = left {
+            return left;
+        }
         let right = self.eval_expression(right);
-        match (left, right) {
+        if let Object::Error(_) = right {
+            return right;
+        }
+        match (left.clone(), right.clone()) {
             (Object::Integer(left), Object::Integer(right)) => match operator {
                 Infix::Plus => Object::Integer(left + right),
                 Infix::Minus => Object::Integer(left - right),
@@ -101,9 +117,12 @@ impl Evaluator {
             (Object::Boolean(left), Object::Boolean(right)) => match operator {
                 Infix::Equal => Object::Boolean(left == right),
                 Infix::NotEqual => Object::Boolean(left != right),
-                _ => Object::Null,
+                _ => Object::Error(
+                    format!("unknown operator: Boolean({left:?}) {operator} Boolean({right:?})")
+                        .to_string(),
+                ),
             },
-            _ => Object::Null,
+            _ => Object::Error(format!("type mismatch: {left:?} {operator} {right:?}").to_string()),
         }
     }
 
@@ -114,6 +133,9 @@ impl Evaluator {
         alternative: Option<Box<Stmt>>,
     ) -> Object {
         let cond = self.eval_expression(cond.clone());
+        if let Object::Error(_) = cond {
+            return cond;
+        }
         if cond.is_truthy() {
             self.eval_statement(consequence)
         } else {
@@ -272,6 +294,35 @@ mod tests {
             let mut evaluator = Evaluator::new();
             let result = evaluator.eval_program(program);
             assert_eq!(result, Object::Integer(expected));
+        }
+    }
+
+    #[test]
+    fn test_error_handling() {
+        let tests = vec![
+            ("5 + true;", "type mismatch: Integer(5) + Boolean(true)"),
+            ("-true", "unknown operator: -Boolean(true)"),
+            (
+                "true + false;",
+                "unknown operator: Boolean(true) + Boolean(false)",
+            ),
+            (
+                "5; true + false; 5",
+                "unknown operator: Boolean(true) + Boolean(false)",
+            ),
+            (
+                "if (10 > 1) { if (10 > 1) { return true + false; } } return 1;",
+                "unknown operator: Boolean(true) + Boolean(false)",
+            ),
+        ];
+
+        for (input, expected) in tests {
+            let lexer = Lexer::new(input.to_string());
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+            let mut evaluator = Evaluator::new();
+            let result = evaluator.eval_program(program);
+            assert_eq!(result, Object::Error(expected.to_string()));
         }
     }
 }
