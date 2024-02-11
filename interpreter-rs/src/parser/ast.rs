@@ -31,8 +31,8 @@ impl Display for Stmt {
 pub enum Expr {
     Ident(Ident),
     Literal(Literal),
-    Prefix(String, Box<Expr>),
-    Infix(Box<Expr>, String, Box<Expr>),
+    Prefix(Prefix, Box<Expr>),
+    Infix(Box<Expr>, Infix, Box<Expr>),
     If(Box<Expr>, Box<Stmt>, Option<Box<Stmt>>),
     Function(Vec<Ident>, Box<Stmt>),
     Call(Box<Expr>, Vec<Expr>),
@@ -94,6 +94,48 @@ impl Display for Literal {
 
 #[derive(PartialEq, Debug, Eq, Clone)]
 pub struct Ident(pub String);
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum Prefix {
+    Minus,
+    Not,
+}
+
+impl Display for Prefix {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Prefix::Minus => write!(f, "-"),
+            Prefix::Not => write!(f, "!"),
+        }
+    }
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum Infix {
+    Plus,
+    Minus,
+    Multiply,
+    Divide,
+    Equal,
+    NotEqual,
+    LessThan,
+    GreaterThan,
+}
+
+impl Display for Infix {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Infix::Plus => write!(f, "+"),
+            Infix::Minus => write!(f, "-"),
+            Infix::Multiply => write!(f, "*"),
+            Infix::Divide => write!(f, "/"),
+            Infix::Equal => write!(f, "=="),
+            Infix::NotEqual => write!(f, "!="),
+            Infix::LessThan => write!(f, "<"),
+            Infix::GreaterThan => write!(f, ">"),
+        }
+    }
+}
 
 impl Display for Ident {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

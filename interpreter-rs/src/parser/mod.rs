@@ -3,6 +3,8 @@ use crate::lexer::{token::Token, Lexer};
 pub mod ast;
 use ast::{Expr, Ident, Literal, Program, Stmt};
 
+use self::ast::{Infix, Prefix};
+
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 enum Precedence {
     Lowest,
@@ -181,10 +183,14 @@ impl Parser {
     fn parse_prefix_expression(&mut self) -> Option<Expr> {
         match self.cur_token.clone() {
             Some(Token::Bang | Token::Minus) => {
-                let op = self.cur_token.clone().unwrap().to_string();
+                let prefix = match self.cur_token.clone().unwrap() {
+                    Token::Bang => Some(Prefix::Not),
+                    Token::Minus => Some(Prefix::Minus),
+                    _ => None,
+                };
                 self.next_token();
                 let expr = self.parse_expression(&Precedence::Prefix).unwrap();
-                Some(Expr::Prefix(op, Box::new(expr)))
+                prefix.map(|prefix| Expr::Prefix(prefix, Box::new(expr)))
             }
             _ => None,
         }
@@ -202,11 +208,21 @@ impl Parser {
                 | Token::Eq
                 | Token::NotEq,
             ) => {
-                let op = self.cur_token.clone().unwrap().to_string();
+                let infix = match self.cur_token.clone().unwrap() {
+                    Token::Plus => Some(Infix::Plus),
+                    Token::Minus => Some(Infix::Minus),
+                    Token::Slash => Some(Infix::Divide),
+                    Token::Asterisk => Some(Infix::Multiply),
+                    Token::LessThan => Some(Infix::LessThan),
+                    Token::GreaterThan => Some(Infix::GreaterThan),
+                    Token::Eq => Some(Infix::Equal),
+                    Token::NotEq => Some(Infix::NotEqual),
+                    _ => None,
+                };
                 let precedence = self.cur_precedence();
                 self.next_token();
                 let right = self.parse_expression(&precedence).unwrap();
-                Some(Expr::Infix(Box::new(left), op, Box::new(right)))
+                infix.map(|infix| Expr::Infix(Box::new(left), infix, Box::new(right)))
             }
             _ => None,
         }
@@ -361,7 +377,7 @@ impl Parser {
 mod tests {
     use crate::{
         lexer::Lexer,
-        parser::ast::{Expr, Literal, Stmt},
+        parser::ast::{Expr, Infix, Literal, Prefix, Stmt},
     };
 
     use super::Parser;
@@ -526,7 +542,7 @@ mod tests {
         assert_eq!(program.len(), 2);
 
         let tests = [5, 15];
-        let operators = ["!", "-"];
+        let operators = [Prefix::Not, Prefix::Minus];
         for (i, test) in tests.iter().enumerate() {
             let stmt = &program[i];
             match stmt {
@@ -560,7 +576,16 @@ mod tests {
         assert_eq!(program.len(), 8);
 
         let tests = [5, 5, 5, 5, 5, 5, 5, 5];
-        let operators = ["+", "-", "*", "/", ">", "<", "==", "!="];
+        let operators = [
+            Infix::Plus,
+            Infix::Minus,
+            Infix::Multiply,
+            Infix::Divide,
+            Infix::GreaterThan,
+            Infix::LessThan,
+            Infix::Equal,
+            Infix::NotEqual,
+        ];
         for (i, test) in tests.iter().enumerate() {
             let stmt = &program[i];
             match stmt {
