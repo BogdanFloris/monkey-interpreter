@@ -45,7 +45,8 @@ impl Evaluator {
         match stmt {
             Stmt::Expr(expr) => self.eval_expression(expr),
             Stmt::Block(stmts) => self.eval_block_statement(stmts),
-            _ => Object::Null,
+            Stmt::Return(expr) => Object::ReturnValue(Box::new(self.eval_expression(expr))),
+            Stmt::Let(_, _) => Object::Null,
         }
     }
 
@@ -251,6 +252,25 @@ mod tests {
             } else {
                 assert_eq!(result, Object::Null);
             }
+        }
+    }
+
+    #[test]
+    fn test_return_statements() {
+        let tests = vec![
+            ("return 10;", 10),
+            ("return 10; 9;", 10),
+            ("return 2 * 5; 9;", 10),
+            ("9; return 2 * 5; 9;", 10),
+        ];
+
+        for (input, expected) in tests {
+            let lexer = Lexer::new(input.to_string());
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+            let mut evaluator = Evaluator::new();
+            let result = evaluator.eval_program(program);
+            assert_eq!(result, Object::Integer(expected));
         }
     }
 }
