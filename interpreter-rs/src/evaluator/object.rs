@@ -24,3 +24,13 @@ impl Display for Object {
         }
     }
 }
+
+impl Object {
+    pub fn is_truthy(&self) -> bool {
+        match *self {
+            Object::Boolean(value) => value,
+            Object::Null => false,
+            _ => true,
+        }
+    }
+}

@@ -44,6 +44,7 @@ impl Evaluator {
     pub fn eval_statement(&mut self, stmt: Stmt) -> Object {
         match stmt {
             Stmt::Expr(expr) => self.eval_expression(expr),
+            Stmt::Block(stmts) => self.eval_block_statement(stmts),
             _ => Object::Null,
         }
     }
@@ -53,6 +54,9 @@ impl Evaluator {
             Expr::Literal(literal) => self.eval_literal(&literal),
             Expr::Prefix(prefix, right) => self.eval_prefix_expression(&prefix, &right),
             Expr::Infix(left, infix, right) => self.eval_infix_expression(*left, &infix, *right),
+            Expr::If(cond, consequence, alternative) => {
+                self.eval_if_else_expression(&cond, *consequence, alternative)
+            }
             _ => Object::Null,
         }
     }
@@ -99,6 +103,23 @@ impl Evaluator {
                 _ => Object::Null,
             },
             _ => Object::Null,
+        }
+    }
+
+    pub fn eval_if_else_expression(
+        &mut self,
+        cond: &Expr,
+        consequence: Stmt,
+        alternative: Option<Box<Stmt>>,
+    ) -> Object {
+        let cond = self.eval_expression(cond.clone());
+        if cond.is_truthy() {
+            self.eval_statement(consequence)
+        } else {
+            match alternative {
+                Some(alternative) => self.eval_statement(*alternative),
+                None => Object::Null,
+            }
         }
     }
 }
@@ -204,6 +225,32 @@ mod tests {
             let mut evaluator = Evaluator::new();
             let result = evaluator.eval_program(program);
             assert_eq!(result, Object::Boolean(expected));
+        }
+    }
+
+    #[test]
+    fn test_if_else_expression() {
+        let tests = vec![
+            ("if (true) { 10 }", Some(10)),
+            ("if (false) { 10 }", None),
+            ("if (1) { 10 }", Some(10)),
+            ("if (1 < 2) { 10 }", Some(10)),
+            ("if (1 > 2) { 10 }", None),
+            ("if (1 > 2) { 10 } else { 20 }", Some(20)),
+            ("if (1 < 2) { 10 } else { 20 }", Some(10)),
+        ];
+
+        for (input, expected) in tests {
+            let lexer = Lexer::new(input.to_string());
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+            let mut evaluator = Evaluator::new();
+            let result = evaluator.eval_program(program);
+            if let Some(expected) = expected {
+                assert_eq!(result, Object::Integer(expected));
+            } else {
+                assert_eq!(result, Object::Null);
+            }
         }
     }
 }
