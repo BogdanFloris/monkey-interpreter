@@ -4,6 +4,11 @@ use std::io::{BufRead, Write};
 
 const PROMPT: &str = ">> ";
 
+/// Start the REPL
+///
+/// # Panics
+///
+/// Panics if the writer is unable to write to the output
 pub fn start<R: BufRead, W: Write>(reader: &mut R, writer: &mut W) {
     loop {
         write!(writer, "{PROMPT}").unwrap();
