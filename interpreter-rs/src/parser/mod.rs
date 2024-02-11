@@ -1,8 +1,7 @@
-use crate::{
-    ast::{Expr, Ident, Literal, Program, Stmt},
-    lexer::Lexer,
-    token::Token,
-};
+use crate::lexer::{token::Token, Lexer};
+
+pub mod ast;
+use ast::{Expr, Ident, Literal, Program, Stmt};
 
 #[derive(PartialEq, Eq, PartialOrd, Ord)]
 enum Precedence {
@@ -23,6 +22,7 @@ pub struct Parser {
 }
 
 impl Parser {
+    #[must_use]
     pub fn new(lexer: Lexer) -> Self {
         let mut p = Self {
             lexer,
@@ -45,10 +45,6 @@ impl Parser {
             }
             let stmt = self.parse_statement();
             if let Some(stmt) = stmt {
-                if !(self.peek_token.clone().unwrap() == Token::SemiColon) {
-                    self.errors
-                        .push(format!("expected semicolon after statement: {stmt}"));
-                }
                 program.push(stmt);
             }
             self.next_token();
@@ -364,8 +360,8 @@ impl Parser {
 #[cfg(test)]
 mod tests {
     use crate::{
-        ast::{Expr, Literal, Stmt},
         lexer::Lexer,
+        parser::ast::{Expr, Literal, Stmt},
     };
 
     use super::Parser;

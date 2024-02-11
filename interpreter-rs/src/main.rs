@@ -1,10 +1,9 @@
 use repl::start;
 
-mod ast;
-mod lexer;
-mod parser;
-mod repl;
-mod token;
+pub mod evaluator;
+pub mod lexer;
+pub mod parser;
+pub mod repl;
 
 fn main() {
     let mut reader = std::io::stdin().lock();

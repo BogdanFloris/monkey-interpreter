@@ -1,6 +1,6 @@
+use crate::lexer::Lexer;
+use crate::parser::Parser;
 use std::io::{BufRead, Write};
-
-use crate::{lexer::Lexer, parser::Parser};
 
 const PROMPT: &str = ">> ";
 

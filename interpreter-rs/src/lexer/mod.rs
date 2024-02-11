@@ -1,4 +1,6 @@
-use crate::token::Token;
+pub mod token;
+
+use crate::lexer::token::Token;
 
 /// The Lexer is responsible for taking the input string and turning it into tokens that the parser can understand.
 pub struct Lexer {
@@ -12,6 +14,7 @@ pub struct Lexer {
 }
 
 impl Lexer {
+    #[must_use]
     pub fn new(input: String) -> Self {
         let mut l = Lexer {
             input,
@@ -59,8 +62,10 @@ impl Lexer {
                 if self.ch.is_ascii_alphabetic() {
                     return Token::lookup_ident(&self.read_ident());
                 } else if self.ch.is_ascii_digit() {
-                    let num = self.read_number().unwrap();
-                    return Token::Int(num);
+                    return match self.read_number() {
+                        Ok(num) => Token::Int(num),
+                        Err(_) => Token::Illegal,
+                    };
                 }
                 Token::Illegal
             }
@@ -112,7 +117,7 @@ impl Lexer {
 
 #[cfg(test)]
 mod tests {
-    use crate::token::Token;
+    use crate::lexer::token::Token;
 
     #[test]
     fn test_next_token() {
