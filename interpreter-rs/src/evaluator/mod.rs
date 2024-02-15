@@ -1,10 +1,13 @@
 use crate::parser::ast::{Expr, Infix, Literal, Prefix, Program, Stmt};
 
-use self::object::Object;
+use self::{enviroment::Environment, object::Object};
 
+mod enviroment;
 mod object;
 
-pub struct Evaluator {}
+pub struct Evaluator {
+    env: Environment,
+}
 
 impl Default for Evaluator {
     fn default() -> Self {
@@ -22,7 +25,9 @@ fn return_value(obj: Object) -> Object {
 impl Evaluator {
     #[must_use]
     pub fn new() -> Self {
-        Evaluator {}
+        Evaluator {
+            env: Environment::new(),
+        }
     }
 
     pub fn eval_program(&mut self, program: Program) -> Object {
@@ -53,7 +58,14 @@ impl Evaluator {
                 }
                 Object::ReturnValue(Box::new(value))
             }
-            Stmt::Let(_, _) => Object::Null,
+            Stmt::Let(ident, expr) => {
+                let value = self.eval_expression(expr);
+                if let Object::Error(_) = value {
+                    return value;
+                }
+                self.env.set(&ident.0, value.clone());
+                value
+            }
         }
     }
 
@@ -65,7 +77,15 @@ impl Evaluator {
             Expr::If(cond, consequence, alternative) => {
                 self.eval_if_else_expression(&cond, *consequence, alternative)
             }
+            Expr::Ident(ident) => self.eval_identifier(&ident.0),
             _ => Object::Null,
+        }
+    }
+
+    fn eval_identifier(&self, ident: &str) -> Object {
+        match self.env.get(ident) {
+            Some(val) => val,
+            None => Object::Error(format!("identifier not found: {ident}").to_string()),
         }
     }
 
@@ -314,6 +334,7 @@ mod tests {
                 "if (10 > 1) { if (10 > 1) { return true + false; } } return 1;",
                 "unknown operator: Boolean(true) + Boolean(false)",
             ),
+            ("foobar", "identifier not found: foobar"),
         ];
 
         for (input, expected) in tests {
@@ -323,6 +344,24 @@ mod tests {
             let mut evaluator = Evaluator::new();
             let result = evaluator.eval_program(program);
             assert_eq!(result, Object::Error(expected.to_string()));
+        }
+    }
+
+    #[test]
+    fn test_let_statements() {
+        let tests = vec![
+            ("let a = 5; a;", 5),
+            ("let a = 5 * 5; a;", 25),
+            ("let a = 5; let b = a; b;", 5),
+            ("let a = 5; let b = a; let c = a + b + 5; c;", 15),
+        ];
+        for (input, expected) in tests {
+            let lexer = Lexer::new(input.to_string());
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+            let mut evaluator = Evaluator::new();
+            let result = evaluator.eval_program(program);
+            assert_eq!(result, Object::Integer(expected));
         }
     }
 }
