@@ -1,4 +1,6 @@
-use crate::parser::ast::{Expr, Infix, Literal, Prefix, Program, Stmt};
+use std::{cell::RefCell, rc::Rc};
+
+use crate::parser::ast::{Expr, Ident, Infix, Literal, Prefix, Program, Stmt};
 
 use self::{enviroment::Environment, object::Object};
 
@@ -6,7 +8,7 @@ mod enviroment;
 mod object;
 
 pub struct Evaluator {
-    env: Environment,
+    env: Rc<RefCell<Environment>>,
 }
 
 impl Default for Evaluator {
@@ -26,7 +28,7 @@ impl Evaluator {
     #[must_use]
     pub fn new() -> Self {
         Evaluator {
-            env: Environment::new(),
+            env: Rc::new(RefCell::new(Environment::new())),
         }
     }
 
@@ -63,7 +65,7 @@ impl Evaluator {
                 if let Object::Error(_) = value {
                     return value;
                 }
-                self.env.set(&ident.0, value.clone());
+                self.env.borrow_mut().set(&ident.0, value.clone());
                 value
             }
         }
@@ -78,12 +80,55 @@ impl Evaluator {
                 self.eval_if_else_expression(&cond, *consequence, alternative)
             }
             Expr::Ident(ident) => self.eval_identifier(&ident.0),
-            _ => Object::Null,
+            Expr::Function(params, body) => self.eval_function(params, *body),
+            Expr::Call(func, args) => self.eval_call_expression(*func, args),
+        }
+    }
+
+    fn eval_call_expression(&mut self, func: Expr, args: Vec<Expr>) -> Object {
+        let func = self.eval_expression(func);
+        if let Object::Error(_) = func {
+            return func;
+        }
+        let args = args
+            .into_iter()
+            .map(|arg| self.eval_expression(arg))
+            .collect::<Vec<Object>>();
+        if args.iter().any(|arg| matches!(arg, Object::Error(_))) {
+            return Object::Error("error evaluating arguments".to_string());
+        }
+        match func {
+            Object::Function(params, body, env) => {
+                if params.len() != args.len() {
+                    return Object::Error(format!(
+                        "wrong number of arguments: want={}, got={}",
+                        params.len(),
+                        args.len()
+                    ));
+                }
+                let mut extended_env = Environment::new_with_parent(Rc::clone(&env));
+                for (param, arg) in params.iter().zip(args) {
+                    extended_env.set(&param.0, arg);
+                }
+                let mut evaluator = Evaluator {
+                    env: Rc::new(RefCell::new(extended_env)),
+                };
+                let result = evaluator.eval_block_statement(body);
+                return_value(result)
+            }
+            _ => Object::Error(format!("{func} is not a function")),
+        }
+    }
+
+    fn eval_function(&mut self, params: Vec<Ident>, body: Stmt) -> Object {
+        match body {
+            Stmt::Block(program) => Object::Function(params, program, Rc::clone(&self.env)),
+            _ => Object::Error("function body must be a block statement".to_string()),
         }
     }
 
     fn eval_identifier(&self, ident: &str) -> Object {
-        match self.env.get(ident) {
+        match self.env.borrow().get(ident) {
             Some(val) => val,
             None => Object::Error(format!("identifier not found: {ident}").to_string()),
         }
@@ -355,6 +400,38 @@ mod tests {
             ("let a = 5; let b = a; b;", 5),
             ("let a = 5; let b = a; let c = a + b + 5; c;", 15),
         ];
+        for (input, expected) in tests {
+            let lexer = Lexer::new(input.to_string());
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
+            let mut evaluator = Evaluator::new();
+            let result = evaluator.eval_program(program);
+            assert_eq!(result, Object::Integer(expected));
+        }
+    }
+
+    #[test]
+    fn test_function_object() {
+        let input = "fn(x) { x + 2; }";
+        let lexer = Lexer::new(input.to_string());
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+        let mut evaluator = Evaluator::new();
+        let result = evaluator.eval_program(program);
+        assert_eq!(result.to_string(), "fn(x) {\n  (x + 2);\n}");
+    }
+
+    #[test]
+    fn test_function_application() {
+        let tests = vec![
+            ("let identity = fn(x) { x; }; identity(5);", 5),
+            ("let identity = fn(x) { return x; }; identity(5);", 5),
+            ("let double = fn(x) { x * 2; }; double(5);", 10),
+            ("let add = fn(x, y) { x + y; }; add(5, 5);", 10),
+            ("let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));", 20),
+            ("fn(x) { x; }(5)", 5),
+        ];
+
         for (input, expected) in tests {
             let lexer = Lexer::new(input.to_string());
             let mut parser = Parser::new(lexer);
